@@ -1,4 +1,3 @@
-
 import os
 import logging
 from telegram import Update
@@ -28,13 +27,13 @@ async def download_song(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "postprocessors": [{
             "key": "FFmpegExtractAudio",
             "preferredcodec": "mp3",
-            "preferredquality": "192",
-        }],
+            "preferredquality": "192"
+        }]
     }
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([f"ytsearch1:{query}"])
+            ydl.download([f"ytsearch:{query}"])
 
         await msg.edit_text("📤 Uploading...")
 
@@ -48,8 +47,10 @@ async def download_song(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def main():
     app = Application.builder().token(TOKEN).build()
+
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, download_song))
+
     app.run_polling()
 
 if __name__ == "__main__":

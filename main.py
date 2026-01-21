@@ -1,44 +1,56 @@
+
 import os
+import logging
+from telegram import Update
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 import yt_dlp
-from pyrogram import Client, filters
-from pytgcalls import PyTgCalls
-from pytgcalls.types.input_stream import AudioPiped
 
-BOT_TOKEN = os.environ.get("BOT_TOKEN")
-API_ID = int(os.environ.get("API_ID"))
-API_HASH = os.environ.get("API_HASH")
+TOKEN = os.getenv("BOT_TOKEN")
 
-app = Client("shadow", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
-call = PyTgCalls(app)
+logging.basicConfig(level=logging.INFO)
 
-def download(song):
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "🎵 **Shadow Music Bot**\n\n"
+        "Send any song name and I will download it for you.\n\n"
+        "Example:\nAlan Walker Faded"
+    )
+
+async def download_song(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.message.text
+    msg = await update.message.reply_text("🔍 Searching...")
+
     ydl_opts = {
-        "format": "bestaudio",
-        "outtmpl": "song.mp3"
+        "format": "bestaudio/best",
+        "outtmpl": "song.%(ext)s",
+        "noplaylist": True,
+        "quiet": True,
+        "postprocessors": [{
+            "key": "FFmpegExtractAudio",
+            "preferredcodec": "mp3",
+            "preferredquality": "192",
+        }],
     }
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        ydl.download([f"ytsearch:{song}"])
-    return "song.mp3"
 
-@app.on_message(filters.command("play") & filters.group)
-async def play(_, msg):
-    if len(msg.command) < 2:
-        await msg.reply("Song name likho!")
-        return
-    song = msg.text.split(None, 1)[1]
-    await msg.reply("Downloading 🎧...")
-    file = download(song)
-    await call.join_group_call(msg.chat.id, AudioPiped(file))
-    await msg.reply(f"Now Playing: {song}")
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([f"ytsearch1:{query}"])
 
-@app.on_message(filters.command("stop"))
-async def stop(_, msg):
-    await call.leave_group_call(msg.chat.id)
-    await msg.reply("Stopped ❌")
+        await msg.edit_text("📤 Uploading...")
 
-app.start()
-call.start()
-print("Shadow Music Bot is running...")
-import time
-while True:
-    time.sleep(5)
+        with open("song.mp3", "rb") as audio:
+            await update.message.reply_audio(audio)
+
+        os.remove("song.mp3")
+
+    except Exception as e:
+        await msg.edit_text("❌ Failed to download song")
+
+def main():
+    app = Application.builder().token(TOKEN).build()
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, download_song))
+    app.run_polling()
+
+if __name__ == "__main__":
+    main()
